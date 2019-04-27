@@ -17,6 +17,7 @@ module.exports = function (RED) {
 
         node.on('input', function (msg) {
             if ((new Date().getTime() / 1000) > node.config.credentials.expireTime) {
+                console.log('Spotity token expired. Renewing');
                 refreshToken().then(() => {
                     handleInput(msg);
                 });

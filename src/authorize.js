@@ -82,21 +82,14 @@ module.exports = function (RED) {
         spotifyApi.authorizationCodeGrant(req.query.code).then(data => {
             credentials.accessToken = data.body.access_token;
             credentials.refreshToken = data.body.refresh_token;
-            credentials.expireTime = data.body.expires_in;
+            credentials.expireTime = data.body.expires_in + Math.floor(new Date().getTime() / 1000);
             credentials.tokenType = data.body.token_type;
             credentials.name = 'Spotify OAuth2';
 
-            // Set the access token and refresh token
-            spotifyApi.setAccessToken(data.body['access_token']);
-            spotifyApi.setRefreshToken(data.body['refresh_token']);
-
             // Save the amount of seconds until the access token expired
-            tokenExpirationEpoch = new Date().getTime() / 1000 + data.body['expires_in'];
-            console.log(
-                'Retrieved token. It expires in ' +
-                Math.floor(tokenExpirationEpoch - new Date().getTime() / 1000) +
-                ' seconds!'
-            );
+            // expires_in = "The time period (in seconds) for which the access token is valid."
+            tokenExpirationEpoch = new Date().getTime() / 1000 + data.body.expires_in;
+            console.log('Retrieved token. It expires in ' + Math.floor(tokenExpirationEpoch - new Date().getTime() / 1000) + ' seconds!');
 
             delete credentials.csrfToken;
             delete credentials.callback;
@@ -115,27 +108,26 @@ module.exports = function (RED) {
             return;
         }
         var secondsLeft = Math.floor(tokenExpirationEpoch - new Date().getTime() / 1000);
-        console.log(
-          'Token renewal time left: ' + secondsLeft + ' seconds left!'
-        );
       
-        // OK, we need to refresh the token. Stop printing and refresh.
+        // OK, we need to refresh the token.
         if (secondsLeft < (60 * 5)) {
-          clearInterval(this);
+            console.log('Time to refresh the token. Token renewal time left: ' + secondsLeft + ' seconds left!');
       
-          // Refresh token and print the new time to expiration.
-          spotifyApi.refreshAccessToken().then(
-            function(data) {
-              tokenExpirationEpoch =
-                new Date().getTime() / 1000 + data.body['expires_in'];
-              console.log(
-                'Refreshed token. It now expires in ' + Math.floor(tokenExpirationEpoch - new Date().getTime() / 1000) + ' seconds!'
-              );
-            },
-            function(err) {
-              console.log('Could not refresh the token!', err.message);
-            }
-          );
+            // Refresh token and print the new time to expiration.
+            spotifyApi.refreshAccessToken().then(data => {
+                tokenExpirationEpoch =
+                    new Date().getTime() / 1000 + data.body['expires_in'];
+                console.log(
+                    'Refreshed token. It now expires in ' + Math.floor(tokenExpirationEpoch - new Date().getTime() / 1000) + ' seconds!'
+                );
+                //update credentials
+                //const credentials = RED.nodes.getCredentials(node_id);
+                credentials.expireTime = data.body.expires_in + Math.floor(new Date().getTime() / 1000);
+                credentials.accessToken = data.body.access_token;
+                RED.nodes.addCredentials(node_id, credentials);
+            }).catch(err => {
+                console.log('Could not refresh the token!', err.message);
+            });
         }
     }, 60000);
 };
