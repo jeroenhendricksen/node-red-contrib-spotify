@@ -16,7 +16,6 @@ module.exports = function (RED) {
         });
 
         node.on('input', function (msg) {
-            node.log('node.config.credentials.expireTime = ' + node.config.credentials.expireTime);
             if ((new Date().getTime() / 1000) > node.config.credentials.expireTime) {
                 refreshToken().then(() => {
                     handleInput(msg);
@@ -46,7 +45,6 @@ module.exports = function (RED) {
         }
 
         function refreshToken() {
-            node.log('refreshToken()');
             return new Promise((resolve, reject) => {
                 spotifyApi.refreshAccessToken()
                 .then(data => {

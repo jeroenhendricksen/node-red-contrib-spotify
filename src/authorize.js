@@ -4,9 +4,6 @@ module.exports = function (RED) {
     const crypto = require('crypto');
     const SpotifyWebApi = require('spotify-web-api-node');
 
-    // When our access token will expire
-    var tokenExpirationEpoch;
-
     function AuthNode(config) {
         RED.nodes.createNode(this, config);
 
@@ -86,11 +83,6 @@ module.exports = function (RED) {
             credentials.tokenType = data.body.token_type;
             credentials.name = 'Spotify OAuth2';
 
-            // Save the amount of seconds until the access token expired
-            // expires_in = "The time period (in seconds) for which the access token is valid."
-            tokenExpirationEpoch = new Date().getTime() / 1000 + data.body.expires_in;
-            console.log('Retrieved token. It expires in ' + Math.floor(tokenExpirationEpoch - new Date().getTime() / 1000) + ' seconds!');
-
             delete credentials.csrfToken;
             delete credentials.callback;
             RED.nodes.addCredentials(node_id, credentials);
@@ -100,34 +92,4 @@ module.exports = function (RED) {
             res.send('spotify.error.tokens');
         });
     });
-
-    // Check for token renewal every minute
-    setInterval(function() {
-        if (tokenExpirationEpoch == null || tokenExpirationEpoch == 0) {
-            console.log('tokenExpirationEpoch was not set. Skipping token renewal.');
-            return;
-        }
-        var secondsLeft = Math.floor(tokenExpirationEpoch - new Date().getTime() / 1000);
-      
-        // OK, we need to refresh the token.
-        if (secondsLeft < (60 * 5)) {
-            console.log('Time to refresh the token. Token renewal time left: ' + secondsLeft + ' seconds left!');
-      
-            // Refresh token and print the new time to expiration.
-            spotifyApi.refreshAccessToken().then(data => {
-                tokenExpirationEpoch =
-                    new Date().getTime() / 1000 + data.body['expires_in'];
-                console.log(
-                    'Refreshed token. It now expires in ' + Math.floor(tokenExpirationEpoch - new Date().getTime() / 1000) + ' seconds!'
-                );
-                //update credentials
-                //const credentials = RED.nodes.getCredentials(node_id);
-                credentials.expireTime = data.body.expires_in + Math.floor(new Date().getTime() / 1000);
-                credentials.accessToken = data.body.access_token;
-                RED.nodes.addCredentials(node_id, credentials);
-            }).catch(err => {
-                console.log('Could not refresh the token!', err.message);
-            });
-        }
-    }, 60000);
 };
